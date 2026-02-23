@@ -1,11 +1,31 @@
 package main
 
 import (
-	"github.com/h4r5h1l/Chirpy/api"
+	"database/sql"
 	"net/http"
+	"os"
+
+	"github.com/h4r5h1l/Chirpy/api"
+	"github.com/h4r5h1l/Chirpy/internal/database"
+	"github.com/joho/godotenv"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	godotenv.Load() // Load environment variables from .env file
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		panic("DB_URL environment variable is required")
+	}
+	// Initialize the database connection
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	//
+	dbQueries := database.New(db)
 	// Create a new ServeMux to handle incoming HTTP requests
 	mux := http.NewServeMux()
 	// Create a new HTTP server with the specified address and handler
@@ -22,17 +42,11 @@ func main() {
 	// Register handlers for the metrics and reset endpoints
 	mux.HandleFunc("GET /admin/metrics", apiCfg.GetFileServerHits)
 	mux.HandleFunc("POST /admin/reset", apiCfg.ResetFileServerHits)
+	// Register a handler for the chirp validation endpoint
+	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", handlerUsers(dbQueries))
 	// Register a handler for the health check endpoint
 	mux.HandleFunc("GET /healthz", readyCheckHandler)
 	// Start the HTTP server and listen for incoming requests
 	server.ListenAndServe()
-}
-
-// readyCheckHandler is a simple HTTP handler that responds with "OK" to indicate that the server is ready to handle requests
-func readyCheckHandler(w http.ResponseWriter, r *http.Request) {
-	// Set the Content-Type header to indicate that the response is plain text
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	// Write the HTTP status code and response body to indicate that the server is healthy
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
 }
