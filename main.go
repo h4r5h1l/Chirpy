@@ -36,7 +36,10 @@ func main() {
 	// Create a file server to serve files from the current directory, stripping the "/app" prefix from the URL path
 	fileServer := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
 	// Create a new apiConfig instance to manage the file server hit metrics
-	apiCfg := &api.ApiConfig{}
+	apiCfg := &api.ApiConfig{
+		DB:       dbQueries,
+		Platform: os.Getenv("PLATFORM"),
+	}
 	// Register the file server handler with the middleware to increment the hit count
 	mux.Handle("/app/", apiCfg.MiddlewareMetricInc(fileServer))
 	// Register handlers for the metrics and reset endpoints
