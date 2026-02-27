@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
-	//
+	// Create a new database queries instance to interact with the database
 	dbQueries := database.New(db)
 	// Create a new ServeMux to handle incoming HTTP requests
 	mux := http.NewServeMux()
@@ -45,9 +45,11 @@ func main() {
 	// Register handlers for the metrics and reset endpoints
 	mux.HandleFunc("GET /admin/metrics", apiCfg.GetFileServerHits)
 	mux.HandleFunc("POST /admin/reset", apiCfg.ResetFileServerHits)
-	// Register a handler for the chirp validation endpoint
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	// Register a handler for the api calls
 	mux.HandleFunc("POST /api/users", handlerUsers(dbQueries))
+	mux.HandleFunc("POST /api/chirps", handlerChirps(dbQueries))
+	mux.HandleFunc("GET /api/chirps", handlerGetChirps(dbQueries))
+	mux.HandleFunc("GET /api/chirps/{chirpID}", handlerGetChirpById(dbQueries))
 	// Register a handler for the health check endpoint
 	mux.HandleFunc("GET /healthz", readyCheckHandler)
 	// Start the HTTP server and listen for incoming requests

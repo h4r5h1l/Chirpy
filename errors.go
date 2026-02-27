@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 )
 
 // readyCheckHandler is a simple HTTP handler that responds with "OK" to indicate that the server is ready to handle requests
@@ -37,36 +36,4 @@ func respondWithJSON(w http.ResponseWriter, statusCode int, payload interface{})
 	}
 	w.WriteHeader(statusCode)
 	w.Write(jsonData)
-}
-
-func replace_words(input string) string {
-	bad := []string{"kerfuffle", "sharbert", "fornax"}
-	parts := strings.Split(input, " ")
-	for i, word := range parts {
-		for _, bad_word := range bad {
-			if strings.ToLower(word) == bad_word {
-				parts[i] = "****"
-			}
-		}
-	}
-	return strings.Join(parts, " ")
-}
-
-// handlerValidateChirp is an HTTP handler that validates the length of a chirp and responds with a JSON object indicating whether it is valid or not
-func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	type ChirpRequest struct {
-		Body string `json:"body"`
-	}
-	var chirpRequest ChirpRequest
-	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&chirpRequest); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Something went wrong")
-		return
-	}
-	if len(chirpRequest.Body) > 140 {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
-		return
-	}
-	chirpRequest.Body = replace_words(chirpRequest.Body)
-	respondWithJSON(w, http.StatusOK, map[string]string{"cleaned_body": chirpRequest.Body})
 }
