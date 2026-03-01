@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/h4r5h1l/Chirpy/api"
 	"github.com/h4r5h1l/Chirpy/internal/database"
 	"github.com/joho/godotenv"
 
@@ -36,9 +35,10 @@ func main() {
 	// Create a file server to serve files from the current directory, stripping the "/app" prefix from the URL path
 	fileServer := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
 	// Create a new apiConfig instance to manage the file server hit metrics
-	apiCfg := &api.ApiConfig{
-		DB:       dbQueries,
-		Platform: os.Getenv("PLATFORM"),
+	apiCfg := &apiConfig{
+		jwt_secret: os.Getenv("TOKEN_SECRET"),
+		DB:         dbQueries,
+		Platform:   os.Getenv("PLATFORM"),
 	}
 	// Register the file server handler with the middleware to increment the hit count
 	mux.Handle("/app/", apiCfg.MiddlewareMetricInc(fileServer))
@@ -47,9 +47,10 @@ func main() {
 	mux.HandleFunc("POST /admin/reset", apiCfg.ResetFileServerHits)
 	// Register a handler for the api calls
 	mux.HandleFunc("POST /api/users", handlerUsers(dbQueries))
-	mux.HandleFunc("POST /api/chirps", handlerChirps(dbQueries))
+	mux.HandleFunc("POST /api/chirps", handlerChirps(dbQueries, apiCfg.jwt_secret))
 	mux.HandleFunc("GET /api/chirps", handlerGetChirps(dbQueries))
 	mux.HandleFunc("GET /api/chirps/{chirpID}", handlerGetChirpById(dbQueries))
+	mux.HandleFunc("POST /api/login", handlerLogin(dbQueries, apiCfg.jwt_secret))
 	// Register a handler for the health check endpoint
 	mux.HandleFunc("GET /healthz", readyCheckHandler)
 	// Start the HTTP server and listen for incoming requests

@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/h4r5h1l/Chirpy/internal/database"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/h4r5h1l/Chirpy/internal/auth"
+	"github.com/h4r5h1l/Chirpy/internal/database"
 )
 
 type Chirp struct {
@@ -17,11 +19,10 @@ type Chirp struct {
 }
 type ChirpRequest struct {
 	Body   string `json:"body"`
-	UserID string `json:"user_id"`
 }
 
 // handlerChirps is an HTTP handler that validates the length of a chirp and responds with a JSON object indicating whether it is valid or not
-func handlerChirps(db *database.Queries) http.HandlerFunc {
+func handlerChirps(db *database.Queries, jwt_secret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var params ChirpRequest
 		defer r.Body.Close()
@@ -34,14 +35,19 @@ func handlerChirps(db *database.Queries) http.HandlerFunc {
 			return
 		}
 		params.Body = replace_words(params.Body)
-		uid, err := uuid.Parse(params.UserID)
+		token, err := auth.GetBearerToken(r.Header)
 		if err != nil {
-			respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+			respondWithError(w, http.StatusUnauthorized, "Missing or invalid token")
+			return
+		}
+		claims, err := auth.ValidateJWT(token, jwt_secret)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "Invalid token")
 			return
 		}
 		chirp, err := db.CreateChirp(r.Context(), database.CreateChirpParams{
 			Body:   params.Body,
-			UserID: uid,
+			UserID: claims,
 		})
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, "Failed to create chirp")
@@ -52,7 +58,7 @@ func handlerChirps(db *database.Queries) http.HandlerFunc {
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
-			UserID:    chirp.UserID,
+			UserID:    claims,
 		}
 		respondWithJSON(w, http.StatusCreated, jsonResp)
 	}
