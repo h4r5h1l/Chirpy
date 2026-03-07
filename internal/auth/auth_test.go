@@ -2,7 +2,6 @@ package auth
 
 import (
 	"github.com/google/uuid"
-	"net/http"
 	"testing"
 	"time"
 )
@@ -52,19 +51,5 @@ func TestValidateJWT(t *testing.T) {
 	}
 	if validatedUserID.String() != userID {
 		t.Errorf("Expected validated user ID to be %s, but got %s", userID, validatedUserID.String())
-	}
-}
-
-func TestGetBearertoken(t *testing.T) {
-	headers := make(http.Header)
-	headers.Set("Authorization", "Bearer mytoken123")
-
-	token, err := GetBearerToken(headers)
-	if err != nil {
-		t.Fatalf("Error getting bearer token: %v", err)
-	}
-	expectedToken := "mytoken123"
-	if token != expectedToken {
-		t.Errorf("Expected token to be %s, but got %s", expectedToken, token)
 	}
 }

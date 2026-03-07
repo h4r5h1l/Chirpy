@@ -18,7 +18,7 @@ type Chirp struct {
 	UserID    uuid.UUID `json:"user_id"`
 }
 type ChirpRequest struct {
-	Body   string `json:"body"`
+	Body string `json:"body"`
 }
 
 // handlerChirps is an HTTP handler that validates the length of a chirp and responds with a JSON object indicating whether it is valid or not
@@ -108,5 +108,45 @@ func handlerGetChirpById(db *database.Queries) http.HandlerFunc {
 			UserID:    chirp.UserID,
 		}
 		respondWithJSON(w, http.StatusOK, jsonResp)
+	}
+}
+
+func handlerDeleteChirp(db *database.Queries, jwt_secret string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("chirpID")
+		if idStr == "" {
+			respondWithError(w, http.StatusBadRequest, "Missing chirp ID")
+			return
+		}
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
+			return
+		}
+		token, err := auth.GetBearerToken(r.Header)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "Missing or invalid token")
+			return
+		}
+		claims, err := auth.ValidateJWT(token, jwt_secret)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "Invalid token")
+			return
+		}
+		chirp, err := db.GetChirpByChirpID(r.Context(), id)
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, "Chirp not found")
+			return
+		}
+		if chirp.UserID != claims {
+			respondWithError(w, http.StatusForbidden, "You are not the owner of this chirp")
+			return
+		}
+		err = db.DeleteChirpByChirpID(r.Context(), id)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Failed to delete chirp")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

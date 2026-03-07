@@ -45,12 +45,20 @@ func main() {
 	// Register handlers for the metrics and reset endpoints
 	mux.HandleFunc("GET /admin/metrics", apiCfg.GetFileServerHits)
 	mux.HandleFunc("POST /admin/reset", apiCfg.ResetFileServerHits)
-	// Register a handler for the api calls
+	// Register handlers for the api calls
 	mux.HandleFunc("POST /api/users", handlerUsers(dbQueries))
+	mux.HandleFunc("PUT /api/users", handlerUpdateUser(dbQueries, apiCfg.jwt_secret))
+
 	mux.HandleFunc("POST /api/chirps", handlerChirps(dbQueries, apiCfg.jwt_secret))
 	mux.HandleFunc("GET /api/chirps", handlerGetChirps(dbQueries))
 	mux.HandleFunc("GET /api/chirps/{chirpID}", handlerGetChirpById(dbQueries))
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", handlerDeleteChirp(dbQueries, apiCfg.jwt_secret))
+
 	mux.HandleFunc("POST /api/login", handlerLogin(dbQueries, apiCfg.jwt_secret))
+	mux.HandleFunc("POST /api/refresh", handlerRefreshToken(dbQueries, apiCfg.jwt_secret))
+
+	mux.HandleFunc("POST /api/polka/webhooks", handlerPolkaWebhooks(dbQueries))
+	mux.HandleFunc("POST /api/revoke", handlerRevokeToken(dbQueries))
 	// Register a handler for the health check endpoint
 	mux.HandleFunc("GET /healthz", readyCheckHandler)
 	// Start the HTTP server and listen for incoming requests

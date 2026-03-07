@@ -32,25 +32,39 @@ func handlerLogin(db *database.Queries, jwt_secret string) http.HandlerFunc {
 			respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
 			return
 		}
-		if params.ExpiresInSecs <= 0 || params.ExpiresInSecs > 3600 {
-			params.ExpiresInSecs = 3600 // default to 1 hour if not provided or exceeds max value
-		}
-		token, err := auth.MakeJWT(user.ID, jwt_secret, time.Duration(params.ExpiresInSecs)*time.Second)
+		access_token, err := auth.MakeJWT(user.ID, jwt_secret, time.Hour)
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, "Failed to create JWT")
 			return
 		}
+		refresh_token, err := auth.MakeRefreshToken()
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Failed to create refresh token")
+			return
+		}
+		err = db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+			Token:     refresh_token,
+			UserID:    user.ID,
+			ExpiresAt: time.Now().Add(60 * 24 * time.Hour), // refresh token valid for 60 days
+		})
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Failed to save refresh token")
+			return
+		}
 		jsonResponse := struct {
-			User  
-			Token string `json:"token"`
+			User
+			Token        string `json:"token"`
+			RefreshToken string `json:"refresh_token"`
 		}{
 			User: User{
 				ID:        user.ID,
 				CreatedAt: user.CreatedAt,
 				UpdatedAt: user.UpdatedAt,
 				Email:     user.Email,
+				IsRed:     user.IsChirpyRed,
 			},
-			Token: token,
+			Token:        access_token,
+			RefreshToken: refresh_token,
 		}
 		respondWithJSON(w, http.StatusOK, jsonResponse)
 	}
